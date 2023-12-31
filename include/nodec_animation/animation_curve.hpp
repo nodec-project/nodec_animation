@@ -36,7 +36,7 @@ public:
      * @param hint
      * @return std::pair<int, float>
      */
-    std::pair<int, float> evaluate(std::uint16_t ticks, int hint = -1) {
+    std::pair<int, float> evaluate(std::uint16_t ticks, int hint = -1) const {
         if (keyframes_.size() == 0) return std::make_pair(-1, 0.0f);
 
         Keyframe current;

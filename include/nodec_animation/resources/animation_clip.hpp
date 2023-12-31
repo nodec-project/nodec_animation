@@ -20,8 +20,8 @@ struct AnimatedProperty {
 };
 
 struct AnimatedComponent {
-    // mapではなく, indexベースにして, 
-    // indexを文字列から取得するためのmapがあればいいと思う.
+    // Instead of using a map, I think it would be better to use an index-based approach,
+    // and have a map to retrieve the index from a string.
     std::unordered_map<std::string, AnimatedProperty> properties;
 };
 
