@@ -1,8 +1,9 @@
 #ifndef NODEC_ANIMATION__ANIMATED_COMPONENT_WRITER_HPP_
 #define NODEC_ANIMATION__ANIMATED_COMPONENT_WRITER_HPP_
 
+#include <cereal/cereal.hpp>
+
 #include <nodec_animation/resources/animation_clip.hpp>
-#include <nodec_scene_serialization/scene_serialization.hpp>
 
 namespace nodec_animation {
 
@@ -14,15 +15,23 @@ class AnimatedComponentWriter {
     struct InternalTag {};
 
 public:
+    struct PropertyAnimationState {
+        int current_index;
+    };
+
+    struct ComponentAnimationState {
+        std::unordered_map<std::string, PropertyAnimationState> properties;
+    };
+
     class PropertyWriter : public cereal::InputArchive<PropertyWriter> {
     public:
         PropertyWriter(const nodec_animation::resources::AnimatedComponent &source,
                        std::uint16_t ticks,
-                       AnimatedComponentWriter &owner, InternalTag)
+                       AnimatedComponentWriter &owner, ComponentAnimationState *state, InternalTag)
             : InputArchive(this),
-              source_(source), ticks_(ticks), owner_(owner) {}
+              source_(source), ticks_(ticks), owner_(owner), state_(state) {}
 
-        void load_value(std::string &value) {
+        void load_value(std::string &) {
             // Ignore.
         }
 
@@ -31,11 +40,22 @@ public:
             auto iter = source_.properties.find(current_property_name_);
             if (iter == source_.properties.end()) return;
 
+            auto *property_animation_state = [&]() -> PropertyAnimationState * {
+                if (!state_) return nullptr;
+                return &state_->properties[current_property_name_];
+            }();
+
             const auto &property = iter->second;
             const auto &curve = property.curve;
-            auto sample = curve.evaluate(ticks_);
+            auto sample = curve.evaluate(ticks_,
+                                         property_animation_state
+                                             ? property_animation_state->current_index
+                                             : -1);
 
             value = static_cast<T>(sample.second);
+            if (property_animation_state) {
+                property_animation_state->current_index = sample.first;
+            }
         }
 
         void start_node(const char *name) {
@@ -66,6 +86,7 @@ public:
         AnimatedComponentWriter &owner_;
         std::vector<const char *> name_stack_;
         std::string current_property_name_;
+        ComponentAnimationState *state_;
     };
 
     AnimatedComponentWriter() {
@@ -80,10 +101,10 @@ public:
     template<typename Component>
     void write(const nodec_animation::resources::AnimatedComponent &source,
                std::uint16_t ticks,
-               Component &dest) {
+               Component &dest, ComponentAnimationState *state = nullptr) {
         // TODO: pass the context of previous frame.
 
-        PropertyWriter writer(source, ticks, *this, InternalTag{});
+        PropertyWriter writer(source, ticks, *this, state, InternalTag{});
 
         writer(dest);
     }
@@ -128,12 +149,12 @@ inline void CEREAL_LOAD_FUNCTION_NAME(AnimatedComponentWriter::PropertyWriter &a
 }
 
 template<class T>
-inline void CEREAL_LOAD_FUNCTION_NAME(AnimatedComponentWriter::PropertyWriter &ar, std::shared_ptr<T> &) {
+inline void CEREAL_LOAD_FUNCTION_NAME(AnimatedComponentWriter::PropertyWriter &, std::shared_ptr<T> &) {
     // Ignore.
 }
 
 template<class T>
-inline void CEREAL_LOAD_FUNCTION_NAME(AnimatedComponentWriter::PropertyWriter &ar, std::unique_ptr<T> &) {
+inline void CEREAL_LOAD_FUNCTION_NAME(AnimatedComponentWriter::PropertyWriter &, std::unique_ptr<T> &) {
     // Ignore.
 }
 

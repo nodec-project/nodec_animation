@@ -1,0 +1,6 @@
+#ifndef NODEC_ANIMATION__ANIMATED_COMPONENT_SUPPORT_HPP_
+#define NODEC_ANIMATION__ANIMATED_COMPONENT_SUPPORT_HPP_
+
+#include "animated_component_writer.hpp"
+
+#endif
