@@ -13,7 +13,10 @@ struct Animator {
 
 };
 
-struct AnimatorBegin {};
+struct AnimatorStart {};
+
+struct AnimatorStop {};
+
 }
 } // namespace nodec_animation
 

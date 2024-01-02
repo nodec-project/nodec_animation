@@ -7,6 +7,7 @@
 #include "../component_registry.hpp"
 #include "../components/animator.hpp"
 #include "../components/impl/animated_data.hpp"
+#include "../components/impl/animator_activity.hpp"
 
 namespace nodec_animation {
 namespace systems {
@@ -22,13 +23,51 @@ public:
         using namespace components::impl;
 
         {
-            auto view = registry.view<Animator, AnimatorBegin>();
+            auto view = registry.view<Animator, AnimatorStart>();
 
-            view.each([&](SceneEntity entity, Animator &animator, AnimatorBegin &) {
-                bind(animator, registry, entity);
+            view.each([&](SceneEntity entity, Animator &animator, AnimatorStart &) {
+                auto animator_activity_result = registry.emplace_component<AnimatorActivity>(entity);
+                auto &animator_activity = animator_activity_result.first;
+                auto animator_activity_created = animator_activity_result.second;
+
+                if (animator_activity_created) {
+                    // At first time to create animator activity.
+                    bind(animator, registry, entity, animator_activity);
+                    return;
+                }
+
+                if (animator_activity.clip != animator.clip) {
+                    // Previously created animator activity is not matched with the new animator.
+                    // So, we need to clear the previous AnimatedData and rebind.
+
+                    registry.remove_component<AnimatedData>(animator_activity.animated_entities.begin(),
+                                                            animator_activity.animated_entities.end());
+                    animator_activity.animated_entities.clear();
+                    bind(animator, registry, entity, animator_activity);
+
+                    return;
+                }
+
+                // The animator activity is already created and matched with the new animator.
+                // So, we don't need to rebind, but we need to reset the animation time.
+                reset_animation_time(registry, animator_activity);
             });
 
-            registry.remove_component<AnimatorBegin>(view.begin(), view.end());
+            registry.remove_component<AnimatorStart>(view.begin(), view.end());
+        }
+        {
+            auto view = registry.view<Animator, AnimatorStop>();
+
+            view.each([&](SceneEntity entity, Animator &animator, AnimatorStop &) {
+                auto animator_activity = registry.try_get_component<AnimatorActivity>(entity);
+                if (!animator_activity) return;
+
+                registry.remove_component<AnimatedData>(animator_activity->animated_entities.begin(),
+                                                        animator_activity->animated_entities.end());
+                registry.remove_component<AnimatorActivity>(entity);
+            });
+
+            registry.remove_component<AnimatorStop>(view.begin(), view.end());
         }
 
         registry.view<AnimatedData>().each([&](SceneEntity entity, AnimatedData &animated_data) {
@@ -49,14 +88,29 @@ public:
     }
 
 private:
-    void bind(components::Animator &animator, nodec_scene::SceneRegistry &registry, const nodec_scene::SceneEntity &entity) {
+    void reset_animation_time(nodec_scene::SceneRegistry &registry,
+                              components::impl::AnimatorActivity &animator_activity) {
+        using namespace nodec_scene;
+        using namespace components;
+        using namespace components::impl;
+
+        for (auto &entity : animator_activity.animated_entities) {
+            auto animated_data = registry.try_get_component<AnimatedData>(entity);
+            if (!animated_data) continue;
+            animated_data->time = 0.f;
+        }
+    }
+
+    void bind(components::Animator &animator, nodec_scene::SceneRegistry &registry, const nodec_scene::SceneEntity &entity,
+              components::impl::AnimatorActivity &animator_activity) {
         if (!animator.clip) return;
 
-        bind_each(registry, entity, animator.clip->root_entity(), animator.clip);
+        bind_each(registry, entity, animator.clip->root_entity(), animator.clip, animator_activity);
     }
 
     void bind_each(nodec_scene::SceneRegistry &registry, const nodec_scene::SceneEntity &entity, const resources::AnimatedEntity &animated_entity,
-                   std::shared_ptr<resources::AnimationClip> &clip) {
+                   std::shared_ptr<resources::AnimationClip> &clip,
+                   components::impl::AnimatorActivity &animator_activity) {
         using namespace nodec::entities;
         using namespace nodec_scene::components;
         using namespace nodec_animation::components::impl;
@@ -65,6 +119,8 @@ private:
             auto &animated_data = registry.emplace_component<AnimatedData>(entity).first;
             animated_data.reset(clip, &animated_entity);
         }
+
+        animator_activity.animated_entities.push_back(entity);
 
         auto &hierarchy = registry.emplace_component<Hierarchy>(entity).first;
 
@@ -83,7 +139,7 @@ private:
                 continue;
             }
 
-            bind_each(registry, child_entity, iter->second, clip);
+            bind_each(registry, child_entity, iter->second, clip, animator_activity);
 
             child_entity = child_hierarchy.next;
         }
