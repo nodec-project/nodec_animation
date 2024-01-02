@@ -26,10 +26,10 @@ public:
     class PropertyWriter : public cereal::InputArchive<PropertyWriter> {
     public:
         PropertyWriter(const nodec_animation::resources::AnimatedComponent &source,
-                       std::uint16_t ticks,
+                       float time,
                        AnimatedComponentWriter &owner, ComponentAnimationState *state, InternalTag)
             : InputArchive(this),
-              source_(source), ticks_(ticks), owner_(owner), state_(state) {}
+              source_(source), time_(time), owner_(owner), state_(state) {}
 
         void load_value(std::string &) {
             // Ignore.
@@ -47,7 +47,7 @@ public:
 
             const auto &property = iter->second;
             const auto &curve = property.curve;
-            auto sample = curve.evaluate(ticks_,
+            auto sample = curve.evaluate(time_,
                                          property_animation_state
                                              ? property_animation_state->current_index
                                              : -1);
@@ -82,7 +82,7 @@ public:
 
     private:
         const nodec_animation::resources::AnimatedComponent &source_;
-        const std::uint16_t ticks_;
+        const float time_;
         AnimatedComponentWriter &owner_;
         std::vector<const char *> name_stack_;
         std::string current_property_name_;
@@ -100,11 +100,9 @@ public:
      */
     template<typename Component>
     void write(const nodec_animation::resources::AnimatedComponent &source,
-               std::uint16_t ticks,
+               float time,
                Component &dest, ComponentAnimationState *state = nullptr) {
-        // TODO: pass the context of previous frame.
-
-        PropertyWriter writer(source, ticks, *this, state, InternalTag{});
+        PropertyWriter writer(source, time, *this, state, InternalTag{});
 
         writer(dest);
     }

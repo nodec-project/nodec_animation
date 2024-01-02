@@ -20,7 +20,7 @@ public:
         virtual void write_properties(nodec_scene::SceneRegistry &registry,
                                       const nodec_scene::SceneEntity &entity,
                                       const nodec_animation::resources::AnimatedComponent &source,
-                                      std::uint16_t ticks,
+                                      float time,
                                       AnimatedComponentWriter::ComponentAnimationState *state = nullptr) const = 0;
     };
 
@@ -30,13 +30,13 @@ public:
         void write_properties(nodec_scene::SceneRegistry &registry,
                               const nodec_scene::SceneEntity &entity,
                               const nodec_animation::resources::AnimatedComponent &source,
-                              std::uint16_t ticks,
+                              float time,
                               AnimatedComponentWriter::ComponentAnimationState *state = nullptr) const override {
             auto *component = registry.try_get_component<Component>(entity);
             if (!component) return;
 
             AnimatedComponentWriter writer;
-            writer.write(source, ticks, *component, state);
+            writer.write(source, time, *component, state);
         }
     };
 

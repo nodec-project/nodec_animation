@@ -80,8 +80,6 @@ public:
     }
 
 private:
-    std::uint16_t ticks_per_second_;
-
     AnimatedEntity root_entity_;
 };
 } // namespace resources

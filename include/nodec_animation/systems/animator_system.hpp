@@ -16,7 +16,7 @@ public:
     AnimatorSystem(ComponentRegistry &registry)
         : component_registry_(registry) {}
 
-    void update(nodec_scene::SceneRegistry &registry, std::uint16_t delta_ticks) {
+    void update(nodec_scene::SceneRegistry &registry, float delta_time) {
         using namespace nodec_scene;
         using namespace components;
         using namespace components::impl;
@@ -41,9 +41,9 @@ public:
 
                 auto &state = animated_data.component_animation_states[type_info];
 
-                handler->write_properties(registry, entity, animated_component, animated_data.current_ticks,
+                handler->write_properties(registry, entity, animated_component, animated_data.time,
                                           &state);
-                animated_data.current_ticks += delta_ticks;
+                animated_data.time += delta_time;
             }
         });
     }

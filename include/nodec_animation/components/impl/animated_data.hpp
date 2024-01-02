@@ -26,7 +26,7 @@ struct AnimatedData {
     std::unordered_map<nodec::type_info, AnimatedComponentWriter::ComponentAnimationState>
         component_animation_states;
 
-    std::uint16_t current_ticks{0};
+    float time{0.f};
 
 private:
     std::shared_ptr<resources::AnimationClip> clip_;
