@@ -10,17 +10,17 @@ TEST_CASE("testing add_keyframe()") {
 
     AnimationCurve curve;
 
-    curve.add_keyframe({0, 0.0f});
-    curve.add_keyframe({1000, 1.0f});
+    curve.add_keyframe({0.f, 0.0f});
+    curve.add_keyframe({1.f, 1.0f});
 
-    CHECK(curve[0].ticks == 0);
-    CHECK(curve[1].ticks == 1000);
+    CHECK(curve[0].time == 0.f);
+    CHECK(curve[1].time == 1.f);
 
-    curve.add_keyframe({500, 0.75f});
+    curve.add_keyframe({0.5f, 0.75f});
 
-    CHECK(curve[0].ticks == 0);
-    CHECK(curve[1].ticks == 500);
-    CHECK(curve[2].ticks == 1000);
+    CHECK(curve[0].time == 0.f);
+    CHECK(curve[1].time == 0.5f);
+    CHECK(curve[2].time == 1.f);
 }
 
 TEST_CASE("testing evaluate()") {
@@ -105,8 +105,7 @@ TEST_CASE("testing evaluate()") {
         int hint = -1;
         for (int t = 0; t <= 100; ++t) {
             CAPTURE(t);
-            // std::cout << t << ", " << hint << std::endl;
-            auto result = curve.evaluate(t, hint);
+            auto result = curve.evaluate(static_cast<float>(t), hint);
             CHECK(approx_equal(result.second, t / 100.f));
             hint = result.first;
         }
@@ -123,8 +122,7 @@ TEST_CASE("testing evaluate()") {
         int hint = -1;
         for (int t = 0; t <= 500; ++t) {
             CAPTURE(t);
-            // std::cout << t << ", " << hint << std::endl;
-            auto result = curve.evaluate(t, hint);
+            auto result = curve.evaluate(static_cast<float>(t), hint);
             CHECK(approx_equal(result.second, (t % 100) / 100.f));
             hint = result.first;
         }

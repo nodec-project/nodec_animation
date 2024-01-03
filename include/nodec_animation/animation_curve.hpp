@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <iterator>
 #include <vector>
 
@@ -36,24 +37,22 @@ public:
      * @param hint
      * @return std::pair<int, float>
      */
-    std::pair<int, float> evaluate(std::uint16_t ticks, int hint = -1) {
+    std::pair<int, float> evaluate(float time, int hint = -1) const {
         if (keyframes_.size() == 0) return std::make_pair(-1, 0.0f);
 
         Keyframe current;
-        current.ticks = [&]() {
+        current.time = [&]() {
             switch (wrap_mode_) {
             case WrapMode::Once:
             default:
-                return nodec::clamp(ticks,
-                                    static_cast<std::uint16_t>(0),
-                                    static_cast<std::uint16_t>(keyframes_.back().ticks));
+                return nodec::clamp(time, 0.f, keyframes_.back().time);
 
             case WrapMode::Loop:
-                return static_cast<std::uint16_t>(ticks % keyframes_.back().ticks);
+                return std::fmod(time, keyframes_.back().time);
             }
         }();
 
-        assert(0 <= current.ticks && current.ticks <= keyframes_.back().ticks);
+        assert(0 <= current.time && current.time <= keyframes_.back().time);
 
         auto iter = [&]() {
             // The hint index should be in the range [0, last - 1]
@@ -67,15 +66,15 @@ public:
 
             assert(0 <= hint && hint < keyframes_.size() - 1);
 
-            if (current.ticks < keyframes_[hint].ticks) {
-                if (keyframes_[hint - 1].ticks <= current.ticks) {
+            if (current.time < keyframes_[hint].time) {
+                if (keyframes_[hint - 1].time <= current.time) {
                     return keyframes_.begin() + hint;
                 }
 
                 return std::upper_bound(keyframes_.begin(), keyframes_.begin() + hint - 1, current);
             }
 
-            if (current.ticks < keyframes_[hint + 1].ticks) {
+            if (current.time < keyframes_[hint + 1].time) {
                 return keyframes_.begin() + hint + 1;
             }
 
@@ -83,7 +82,7 @@ public:
                 return keyframes_.end();
             }
 
-            if (current.ticks < keyframes_[hint + 2].ticks) {
+            if (current.time < keyframes_[hint + 2].time) {
                 return keyframes_.begin() + hint + 2;
             }
 
@@ -101,7 +100,7 @@ public:
         if (iter == keyframes_.begin()) return {index, iter->value};
 
         auto prev = std::prev(iter);
-        float value = prev->value + (iter->value - prev->value) / (iter->ticks - prev->ticks) * (current.ticks - prev->ticks);
+        float value = prev->value + (iter->value - prev->value) / (iter->time - prev->time) * (current.time - prev->time);
 
         return {index - 1, value};
     }
