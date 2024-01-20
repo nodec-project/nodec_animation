@@ -26,13 +26,6 @@ struct AnimatedComponent {
 };
 
 struct AnimatedEntity {
-    const AnimatedEntity &child(const std::string &name) const {
-        static const AnimatedEntity dummy;
-        auto iter = children.find(name);
-        if (iter == children.end()) return dummy;
-        return iter->second;
-    }
-
     std::map<std::string, AnimatedEntity> children;
     std::unordered_map<nodec::type_info, AnimatedComponent> components;
 };
@@ -79,9 +72,14 @@ public:
         return root_entity_;
     }
 
+    void set_root_entity(AnimatedEntity &&entity) {
+        root_entity_ = std::move(entity);
+    }
+
 private:
     AnimatedEntity root_entity_;
 };
+
 } // namespace resources
 } // namespace nodec_animation
 

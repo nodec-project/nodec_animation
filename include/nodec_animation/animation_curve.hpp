@@ -16,18 +16,52 @@ namespace nodec_animation {
 
 class AnimationCurve {
 public:
+    using iterator = std::vector<Keyframe>::const_iterator;
+
+    AnimationCurve() {}
+
+    AnimationCurve(const AnimationCurve &other)
+        : keyframes_(other.keyframes_),
+          wrap_mode_(other.wrap_mode_) {
+    }
+
+    AnimationCurve &operator=(const AnimationCurve &other) {
+        keyframes_ = other.keyframes_;
+        wrap_mode_ = other.wrap_mode_;
+        return *this;
+    }
+
+    AnimationCurve(AnimationCurve &&other) noexcept
+        : keyframes_(std::move(other.keyframes_)),
+          wrap_mode_(other.wrap_mode_) {
+    }
+
+    AnimationCurve &operator=(AnimationCurve &&other) noexcept {
+        keyframes_ = std::move(other.keyframes_);
+        wrap_mode_ = other.wrap_mode_;
+        return *this;
+    }
+
+    const std::vector<Keyframe> &keyframes() const {
+        return keyframes_;
+    }
+
+    void set_keyframes(std::vector<Keyframe> &&keyframes) {
+        keyframes_ = std::move(keyframes);
+    }
+
     void set_wrap_mode(const WrapMode &mode) {
         wrap_mode_ = mode;
+    }
+
+    WrapMode wrap_mode() const {
+        return wrap_mode_;
     }
 
     int add_keyframe(const Keyframe &keyframe) {
         auto iter = std::lower_bound(keyframes_.begin(), keyframes_.end(), keyframe);
         iter = keyframes_.insert(iter, keyframe);
         return static_cast<int>(std::distance(keyframes_.begin(), iter));
-    }
-
-    const Keyframe &operator[](std::size_t index) const {
-        return keyframes_[index];
     }
 
     /**
