@@ -116,14 +116,14 @@ TEST_CASE("Testing serialization") {
 
     std::stringstream ss;
     {
-        cereal::UserDataAdapter<ArchiveContext, cereal::JSONOutputArchive> archive(
-            ArchiveContext{serialization, resource_registry}, ss);
+        ArchiveContext context{serialization, resource_registry};
+        cereal::UserDataAdapter<ArchiveContext, cereal::JSONOutputArchive> archive(context, ss);
         archive(cereal::make_nvp("clip", clip));
     }
     // std::cout << ss.str() << "\n";
     {
-        cereal::UserDataAdapter<ArchiveContext, cereal::JSONInputArchive> archive(
-            ArchiveContext{serialization, resource_registry}, ss);
+        ArchiveContext context{serialization, resource_registry};
+        cereal::UserDataAdapter<ArchiveContext, cereal::JSONInputArchive> archive(context, ss);
         AnimationClip clip;
         archive(cereal::make_nvp("clip", clip));
         CHECK(clip.root_entity().components.at(nodec::type_id<ComponentA>()).properties.at("prop").curve.keyframes().size() == 1);
