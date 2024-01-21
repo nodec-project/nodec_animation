@@ -9,6 +9,7 @@
 #include <nodec/ranges.hpp>
 #include <nodec_animation/resources/animation_clip.hpp>
 #include <nodec_animation/serialization/resources/animation_clip.hpp>
+#include <nodec_scene_serialization/archive_context.hpp>
 
 struct ComponentA {
     int prop;
