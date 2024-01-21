@@ -1,12 +1,15 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest.h>
 
+#include <algorithm>
+#include <sstream>
+#include <vector>
+
+#include <cereal/archives/json.hpp>
 #include <nodec/ranges.hpp>
 #include <nodec_animation/resources/animation_clip.hpp>
-
-#include <algorithm>
-#include <vector>
-// #include <ranges>
+#include <nodec_animation/serialization/resources/animation_clip.hpp>
+#include <nodec_scene_serialization/archive_context.hpp>
 
 struct ComponentA {
     int prop;
@@ -37,38 +40,94 @@ TEST_CASE("Testing set_curve") {
         CHECK(clip.root_entity().children.size() == 2);
         CHECK(clip.root_entity().components.size() == 0);
 
-        CHECK(clip.root_entity().child("a").child("a").components.size() == 1);
+        CHECK(clip.root_entity().children.at("a").children.at("a").components.size() == 1);
+    }
+}
+
+struct SerializableComponentA : public nodec_scene_serialization::BaseSerializableComponent {
+    int prop{0};
+
+    SerializableComponentA()
+        : BaseSerializableComponent(this) {}
+
+    SerializableComponentA(const ComponentA &other)
+        : BaseSerializableComponent(this),
+          prop(other.prop) {}
+
+    operator ComponentA() const noexcept {
+        ComponentA value;
+        value.prop = prop;
+        return value;
     }
 
-    // auto split_string = [](const std::string &s, const char *delim) {
-    //     // https://gist.github.com/ScottHutchinson/6b699c997a33c33130821922c11d25c3
-    //     std::vector<std::string> elems;
-    //     size_t start{};
-    //     size_t end{};
+    template<class Archive>
+    void serialize(Archive &archive) {
+        archive(cereal::make_nvp("prop", prop));
+    }
+};
+NODEC_SCENE_REGISTER_SERIALIZABLE_COMPONENT(SerializableComponentA)
 
-    //     do {
-    //         end = s.find_first_of(delim, start);
-    //         elems.emplace_back(s.substr(start, end - start));
-    //         start = end + 1;
-    //     } while (end != std::string::npos);
-    //     return elems;
-    // };
+struct SerializableComponentC : public nodec_scene_serialization::BaseSerializableComponent {
+    int prop{0};
 
-    // auto parts = split_string("", "/");
+    SerializableComponentC()
+        : BaseSerializableComponent(this) {
+    }
 
-    // for (auto &part : parts) {
-    //     MESSAGE(part);
-    // }
+    template<class Archive>
+    void serialize(Archive &archive) {
+        archive(cereal::make_nvp("prop", prop));
+    }
+};
+NODEC_SCENE_REGISTER_SERIALIZABLE_COMPONENT(SerializableComponentC)
 
+TEST_CASE("Testing serialization") {
+    using namespace nodec_scene_serialization;
+    using namespace nodec_animation;
+    using namespace nodec_animation::resources;
+    using namespace nodec::resource_management;
 
-    // parts = split_string("a/b", "/");
+    ResourceRegistry resource_registry;
 
-    // for (auto &part : parts) {
-    //     MESSAGE(part);
-    // }
-    // parts = split_string("/", "/");
+    SceneSerialization serialization;
+    serialization.register_component<ComponentA, SerializableComponentA>();
+    serialization.register_component<SerializableComponentC>();
 
-    // for (auto &part : parts) {
-    //     MESSAGE(part);
-    // }
+    AnimationClip clip;
+
+    {
+        AnimationCurve curve;
+        curve.add_keyframe({0.f, 0.0f});
+        clip.set_curve<ComponentA>("", "prop", curve);
+    }
+    {
+        AnimationCurve curve;
+        curve.add_keyframe({0.f, 1.0f});
+        curve.add_keyframe({0.5f, 0.5f});
+        clip.set_curve<ComponentA>("a", "prop", curve);
+    }
+    {
+        AnimationCurve curve;
+        curve.add_keyframe({0.f, 0.0f});
+        curve.add_keyframe({0.5f, 0.5f});
+        curve.add_keyframe({1.0f, 1.0f});
+        clip.set_curve<SerializableComponentC>("b/a", "prop", curve);
+    }
+
+    std::stringstream ss;
+    {
+        ArchiveContext context{serialization, resource_registry};
+        cereal::UserDataAdapter<ArchiveContext, cereal::JSONOutputArchive> archive(context, ss);
+        archive(cereal::make_nvp("clip", clip));
+    }
+    // std::cout << ss.str() << "\n";
+    {
+        ArchiveContext context{serialization, resource_registry};
+        cereal::UserDataAdapter<ArchiveContext, cereal::JSONInputArchive> archive(context, ss);
+        AnimationClip clip;
+        archive(cereal::make_nvp("clip", clip));
+        CHECK(clip.root_entity().components.at(nodec::type_id<ComponentA>()).properties.at("prop").curve.keyframes().size() == 1);
+        CHECK(clip.root_entity().children.at("a").components.at(nodec::type_id<ComponentA>()).properties.at("prop").curve.keyframes().size() == 2);
+        CHECK(clip.root_entity().children.at("b").children.at("a").components.at(nodec::type_id<SerializableComponentC>()).properties.at("prop").curve.keyframes().size() == 3);
+    }
 }

@@ -1,11 +1,15 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest.h>
 
-#include <nodec_animation/animation_curve.hpp>
+#include <sstream>
 
+#include <cereal/archives/json.hpp>
 #include <nodec/math/math.hpp>
 
-TEST_CASE("testing add_keyframe()") {
+#include <nodec_animation/animation_curve.hpp>
+#include <nodec_animation/serialization/animation_curve.hpp>
+
+TEST_CASE("Testing add_keyframe()") {
     using namespace nodec_animation;
 
     AnimationCurve curve;
@@ -13,17 +17,17 @@ TEST_CASE("testing add_keyframe()") {
     curve.add_keyframe({0.f, 0.0f});
     curve.add_keyframe({1.f, 1.0f});
 
-    CHECK(curve[0].time == 0.f);
-    CHECK(curve[1].time == 1.f);
+    CHECK(curve.keyframes()[0].time == 0.f);
+    CHECK(curve.keyframes()[1].time == 1.f);
 
     curve.add_keyframe({0.5f, 0.75f});
 
-    CHECK(curve[0].time == 0.f);
-    CHECK(curve[1].time == 0.5f);
-    CHECK(curve[2].time == 1.f);
+    CHECK(curve.keyframes()[0].time == 0.f);
+    CHECK(curve.keyframes()[1].time == 0.5f);
+    CHECK(curve.keyframes()[2].time == 1.f);
 }
 
-TEST_CASE("testing evaluate()") {
+TEST_CASE("Testing evaluate()") {
     using namespace nodec_animation;
     using namespace nodec::math;
 
@@ -126,5 +130,30 @@ TEST_CASE("testing evaluate()") {
             CHECK(approx_equal(result.second, (t % 100) / 100.f));
             hint = result.first;
         }
+    }
+}
+
+TEST_CASE("Testing serialization") {
+    using namespace nodec_animation;
+
+    std::stringstream ss;
+    {
+        cereal::JSONOutputArchive archive(ss);
+        AnimationCurve curve;
+        curve.add_keyframe({0, 0.0f});
+        curve.add_keyframe({50, 0.5f});
+        curve.add_keyframe({100, 1.0f});
+
+        archive(cereal::make_nvp("curve", curve));
+    }
+
+    {
+        cereal::JSONInputArchive archive(ss);
+        AnimationCurve curve;
+        archive(cereal::make_nvp("curve", curve));
+
+        CHECK(curve.keyframes()[0].time == 0.f);
+        CHECK(curve.keyframes()[1].time == 50.f);
+        CHECK(curve.keyframes()[2].time == 100.f);
     }
 }
