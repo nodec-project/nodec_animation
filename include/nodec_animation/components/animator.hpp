@@ -10,14 +10,13 @@ namespace components {
 
 struct Animator {
     std::shared_ptr<resources::AnimationClip> clip;
-
 };
 
 struct AnimatorStart {};
 
 struct AnimatorStop {};
 
-}
+} // namespace components
 } // namespace nodec_animation
 
 #endif
