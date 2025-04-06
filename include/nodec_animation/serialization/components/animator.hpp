@@ -2,6 +2,7 @@
 #define NODEC_ANIMATION__SERIALIZATION__COMPONENTS__ANIMATOR_HPP_
 
 #include <nodec_scene_serialization/serializable_component.hpp>
+#include <nodec_scene_serialization/archive_context.hpp>
 
 #include <nodec_animation/components/animator.hpp>
 
