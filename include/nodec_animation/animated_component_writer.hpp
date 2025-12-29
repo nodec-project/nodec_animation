@@ -23,13 +23,37 @@ public:
         std::unordered_map<std::string, PropertyAnimationState> properties;
     };
 
+    /**
+     * @brief Custom cereal InputArchive for applying animation curve values to component properties.
+     *
+     * Unlike standard cereal archives (JSONInputArchive, BinaryInputArchive, etc.),
+     * this class can be reused via reset() because it does NOT use cereal's internal state:
+     *   - itsPolymorphicTypeMap: Not used (no polymorphic types deserialized)
+     *   - itsSharedPointerMap: Not used (shared_ptr is ignored, see CEREAL_LOAD_FUNCTION_NAME overloads)
+     *   - itsVersionedTypes: Not used (no versioning)
+     *
+     * Standard cereal archives accumulate these states during deserialization,
+     * causing ID collisions and invalid references on reuse.
+     * PropertyWriter only maintains traversal state (name_stack_, current_property_name_)
+     * which is cleared in reset().
+     */
     class PropertyWriter : public cereal::InputArchive<PropertyWriter> {
     public:
-        PropertyWriter(const nodec_animation::resources::AnimatedComponent &source,
-                       float time,
-                       AnimatedComponentWriter &owner, ComponentAnimationState *state, InternalTag)
+        // Constructor for reusable instance (call reset() before each use)
+        PropertyWriter(AnimatedComponentWriter &owner, InternalTag)
             : InputArchive(this),
-              source_(source), time_(time), owner_(owner), state_(state) {}
+              source_(nullptr), time_(0), owner_(owner), state_(nullptr) {}
+
+        // Reset state for reuse with new parameters
+        void reset(const nodec_animation::resources::AnimatedComponent &source,
+                   float time,
+                   ComponentAnimationState *state) {
+            source_ = &source;
+            time_ = time;
+            state_ = state;
+            name_stack_.clear();
+            current_property_name_.clear();
+        }
 
         void load_value(std::string &) {
             // Ignore.
@@ -37,8 +61,10 @@ public:
 
         template<class T, cereal::traits::EnableIf<std::is_arithmetic<T>::value> = cereal::traits::sfinae>
         void load_value(T &value) {
-            auto iter = source_.properties.find(current_property_name_);
-            if (iter == source_.properties.end()) return;
+            if (!source_) return;
+
+            auto iter = source_->properties.find(current_property_name_);
+            if (iter == source_->properties.end()) return;
 
             auto *property_animation_state = [&]() -> PropertyAnimationState * {
                 if (!state_) return nullptr;
@@ -81,15 +107,16 @@ public:
         }
 
     private:
-        const nodec_animation::resources::AnimatedComponent &source_;
-        const float time_;
+        const nodec_animation::resources::AnimatedComponent *source_;
+        float time_;
         AnimatedComponentWriter &owner_;
         std::vector<const char *> name_stack_;
         std::string current_property_name_;
         ComponentAnimationState *state_;
     };
 
-    AnimatedComponentWriter() {
+    AnimatedComponentWriter()
+        : writer_(*this, InternalTag{}) {
     }
 
     /**
@@ -102,10 +129,12 @@ public:
     void write(const nodec_animation::resources::AnimatedComponent &source,
                float time,
                Component &dest, ComponentAnimationState *state = nullptr) {
-        PropertyWriter writer(source, time, *this, state, InternalTag{});
-
-        writer(dest);
+        writer_.reset(source, time, state);
+        writer_(dest);
     }
+
+private:
+    PropertyWriter writer_;
 };
 
 // --- PropertyWriter ---

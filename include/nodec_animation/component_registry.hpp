@@ -35,9 +35,11 @@ public:
             auto *component = registry.try_get_component<Component>(entity);
             if (!component) return;
 
-            AnimatedComponentWriter writer;
-            writer.write(source, time, *component, state);
+            writer_.write(source, time, *component, state);
         }
+
+    private:
+        mutable AnimatedComponentWriter writer_;
     };
 
 public:
