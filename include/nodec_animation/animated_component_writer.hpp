@@ -24,6 +24,24 @@ public:
     };
 
     /**
+     * @brief Dummy OutputArchive paired with PropertyWriter.
+     *
+     * cereal's trait system requires input archives to have a corresponding output archive
+     * for load_minimal/save_minimal patterns (used by enums). This dummy archive satisfies
+     * that requirement without implementing actual serialization.
+     *
+     * The CEREAL_SETUP_ARCHIVE_TRAITS macro below links PropertyWriter to this archive,
+     * preventing "Could not find an associated output archive" errors.
+     */
+    class DummyOutputArchive : public cereal::OutputArchive<DummyOutputArchive> {
+    public:
+        DummyOutputArchive() : OutputArchive(this) {}
+
+        template<class T>
+        void save_value(const T &) {}
+    };
+
+    /**
      * @brief Custom cereal InputArchive for applying animation curve values to component properties.
      *
      * Unlike standard cereal archives (JSONInputArchive, BinaryInputArchive, etc.),
@@ -185,8 +203,30 @@ inline void CEREAL_LOAD_FUNCTION_NAME(AnimatedComponentWriter::PropertyWriter &,
     // Ignore.
 }
 
+// --- DummyOutputArchive minimal save functions (for trait lookup only) ---
+
+// save_minimal for enums on DummyOutputArchive (required for cereal trait resolution)
+template<class T, cereal::traits::EnableIf<std::is_enum<T>::value> = cereal::traits::sfinae>
+inline typename std::underlying_type<T>::type
+CEREAL_SAVE_MINIMAL_FUNCTION_NAME(const AnimatedComponentWriter::DummyOutputArchive &, const T &e) {
+    return static_cast<typename std::underlying_type<T>::type>(e);
+}
+
+// load_minimal for enums on PropertyWriter (ignores the value - enums not animatable)
+template<class T, cereal::traits::EnableIf<std::is_enum<T>::value> = cereal::traits::sfinae>
+inline void CEREAL_LOAD_MINIMAL_FUNCTION_NAME(const AnimatedComponentWriter::PropertyWriter &,
+                                               T &,
+                                               const typename std::underlying_type<T>::type &) {
+    // Ignore - enums are not animatable
+}
+
 } // namespace nodec_animation
 
 CEREAL_REGISTER_ARCHIVE(nodec_animation::AnimatedComponentWriter::PropertyWriter)
+
+// Link PropertyWriter (input) with DummyOutputArchive (output) for load_minimal/save_minimal trait lookup
+// NOTE: DummyOutputArchive is NOT registered with CEREAL_REGISTER_ARCHIVE to avoid polymorphic binding issues
+CEREAL_SETUP_ARCHIVE_TRAITS(nodec_animation::AnimatedComponentWriter::PropertyWriter,
+                            nodec_animation::AnimatedComponentWriter::DummyOutputArchive)
 
 #endif
