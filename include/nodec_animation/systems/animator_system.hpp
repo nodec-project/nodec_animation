@@ -71,7 +71,14 @@ public:
         }
 
         registry.view<AnimatedData>().each([&](SceneEntity entity, AnimatedData &animated_data) {
-            for (auto &component : animated_data.animated_entity()->components) {
+            // Skip if the cached pointer is invalid (e.g., clip was updated via editor API).
+            // Auto-rebind is not implemented yet; the animation simply stops until manually restarted.
+            const auto *animated_entity = animated_data.animated_entity();
+            if (!animated_entity) {
+                return;
+            }
+
+            for (auto &component : animated_entity->components) {
                 auto &animated_component = component.second;
                 auto &type_info = component.first;
 
