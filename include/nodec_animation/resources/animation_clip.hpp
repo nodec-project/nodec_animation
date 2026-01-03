@@ -26,6 +26,10 @@ struct AnimatedComponent {
 };
 
 struct AnimatedEntity {
+    // Using std::map instead of std::unordered_map for pointer stability.
+    // std::map guarantees that pointers/references to elements remain valid
+    // after insert/erase operations (node-based container), which allows
+    // AnimatedData to safely cache pointers to AnimatedEntity nodes.
     std::map<std::string, AnimatedEntity> children;
     std::unordered_map<nodec::type_info, AnimatedComponent> components;
 };
@@ -66,6 +70,7 @@ public:
         if (property_name.empty()) return;
 
         entity.components[nodec::type_id<Component>()].properties[property_name].curve = curve;
+        ++version_;
     }
 
     const AnimatedEntity &root_entity() const {
@@ -74,10 +79,16 @@ public:
 
     void set_root_entity(AnimatedEntity &&entity) {
         root_entity_ = std::move(entity);
+        ++version_;
+    }
+
+    std::uint32_t version() const noexcept {
+        return version_;
     }
 
 private:
     AnimatedEntity root_entity_;
+    std::uint32_t version_{0};
 };
 
 } // namespace resources

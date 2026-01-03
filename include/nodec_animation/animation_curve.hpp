@@ -101,6 +101,9 @@ public:
             assert(0 <= hint && hint < keyframes_.size() - 1);
 
             if (current.time < keyframes_[hint].time) {
+                if (hint == 0) {
+                    return keyframes_.begin();
+                }
                 if (keyframes_[hint - 1].time <= current.time) {
                     return keyframes_.begin() + hint;
                 }
